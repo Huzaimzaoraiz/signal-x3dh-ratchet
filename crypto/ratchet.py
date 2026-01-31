@@ -98,7 +98,12 @@ class DoubleRatchet:
 
         message_key=self._try_skipped_message_keys(remote_dh_public,counter)
 
-        if
+        if message_key is None:
+            message_key=self._derive_reciving_key(counter)
+
+        plaintext=decrypt_message(message_key,nonce,ciphertext)
+
+        return plaintext
 
     def _derive_reciving_key(self,target_counter):
         while self.receiving_counter<target_counter:
