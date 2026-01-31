@@ -37,8 +37,36 @@ class X3DH:
         ephemeral_private=X25519PrivateKey.generate()
         ephemeral_public=ephemeral_private.public_key()
 
+        recipient_identity_key=self._deserialize_public_key(recipient_bundle.identity_key)
+        recipient_signed_prekey=self._deserialize_public_key(recipient_bundle.signed_prekey)
+        recipient_one_time_prekey=self._deserialize_public_key(recipient_bundle.one_time_prekey)
+
+        # Perform DH computations
+        dh1=self.identity_private.exchange(recipient_signed_prekey)
+
+        dh2=ephemeral_private.exchange(recipient_identity_key)
+        dh3=ephemeral_private.exchange(recipient_signed_prekey)
+        dh4=ephemeral_private.exchange(recipient_one_time_prekey)
+
+        shared_secret_material=dh1+dh2+dh3+dh4
+        shared_secret=derive_key(shared_secret_material,b"X3DH shared secret")
+
         # Deserialize recipient's public keys
-        
+        return shared_secret,self._serialize_public_key(ephemeral_public)
+    
+    def respond_to_session(self,initator_identity_key,initator_ephemeral_key):
+
+        remote_identity_key=self._deserialize_public_key(initator_identity_key)
+        remote_ephemeral_key=self._deserialize_public_key(initator_ephemeral_key)
+
+        dh1=self.signed_prekey_private.exchange(remote_identity_key)
+        dh2=self.identity_private.exchange(remote_ephemeral_key)
+        dh3=self.signed_prekey_private.exchange(remote_ephemeral_key)
+        dh4=self.one_time_prekey_private.exchange(remote_ephemeral_key)
+
+        shared_secret_material=dh1+dh2+dh3+dh4
+        shared_secret=derive_key(shared_secret_material,b"X3DH shared secret")
+        return shared_secret
     
     def _serialize_public_key(self,public_key):
         return public_key.public_bytes(
