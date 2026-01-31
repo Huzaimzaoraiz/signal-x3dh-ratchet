@@ -24,23 +24,3 @@ def decrypt_message(key,nonce,ciphertext):
         return plaintext
     except Exception as e:
         raise Exception(f"Decryption failed: {e}")
-if __name__ == "__main__":
-    # Generate a random key
-    key = os.urandom(32)
-    
-    # Encrypt
-    message = b"Hello, World!"
-    nonce, encrypted = encrypt_message(key, message)
-    print(f"Encrypted: {encrypted.hex()}")
-    
-    # Decrypt
-    decrypted = decrypt_message(key, nonce, encrypted)
-    print(f"Decrypted: {decrypted}")
-    
-    # Try tampering
-    tampered = encrypted[:-1] + b"X"
-    try:
-        decrypt_message(key, nonce, tampered)
-        print("ERROR: Should have failed!")
-    except:
-        print("✓ Tampering detected correctly")
