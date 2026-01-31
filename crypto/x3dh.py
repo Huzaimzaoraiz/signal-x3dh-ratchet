@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import serialization
 from crypto.hkdf import derive_key
 
 class X3DH:
-    def __init__(self, key_bundle: X3DHKeyBundle):
+    def __init__(self, user_id):
         self.user_id=user_id
 
         self.identity_private=X25519PrivateKey.generate()
