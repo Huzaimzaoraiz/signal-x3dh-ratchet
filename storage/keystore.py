@@ -35,4 +35,56 @@ class Keystore:
         self.connection.commit()
 
     def save_key(self,user_id,key_type,key_data):
+
+        cursor = self.connection.cursor()
+
+        serialized_data=pickle.dumps(key_data)
+
+        cursor.execute("""
+            INSERT INTO keys (user_id, key_type, key_data)
+            VALUES (?, ?, ?)
+        """,(user_id,key_type,serialized_data))
+
+        self.connection.commit()
+
+    def load_key(self,user_id,key_type):
+        
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            SELECT key_data FROM keys
+            WHERE user_id=? AND key_type=?
+            ORDER BY created_at DESC
+            LIMIT 1
+        """,(user_id,key_type))
+
+        row=cursor.fetchone()
+        if row is None:
+            return None
+        else:
+            return pickle.loads(row[0])
+    def load_all_keys(self,user_id,key_type):
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            SELECT key_data FROM keys
+            WHERE user_id=? AND key_type=?
+            ORDER BY created_at DESC
+        """,(user_id,key_type))
+
+        rows=cursor.fetchall()
+        return [pickle.loads(row[0]) for row in rows]
+    
+    def delete_keys(self,user_id,key_type):
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            DELETE FROM keys
+            WHERE user_id=? AND key_type=?
+        """,(user_id,key_type))
+
+        self.connection.commit()
+    def close(self):
+        self.connection.close()
+
         
