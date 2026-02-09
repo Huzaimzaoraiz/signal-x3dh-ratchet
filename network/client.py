@@ -71,7 +71,32 @@ class SecureMessengerClient:
         
         print(f"✓ Started conversation with {remote_user_id}")
         print(f"  Identity fingerprint: {fingerprint[:16]}...")
+        
+        # Return handshake data so the remote party can accept
+        alice_identity_public = self.x3dh._serialize_public_key(self.x3dh.identity_public)
+        return alice_identity_public, ephemeral_public
     
+    def accept_conversation(self, remote_user_id, remote_identity_key, remote_ephemeral_key):
+        """Accept an incoming conversation using the initiator's handshake data."""
+        # Pin the identity key for MITM protection
+        is_trusted, fingerprint = self.cert_pinner.pin_if_new(
+            remote_user_id, remote_identity_key
+        )
+        if not is_trusted:
+            raise Exception(f"Key mismatch for {remote_user_id}! Possible MITM attack!")
+        
+        # Complete X3DH from the responder side
+        shared_secret = self.x3dh.respond_to_session(remote_identity_key, remote_ephemeral_key)
+        
+        # Create Double Ratchet as responder
+        ratchet = DoubleRatchet(shared_secret, is_initiator=False)
+        
+        self.active_sessions[remote_user_id] = ratchet
+        self.session_store.save_session(self.user_id, remote_user_id, ratchet)
+        
+        print(f"✓ Accepted conversation with {remote_user_id}")
+        print(f"  Identity fingerprint: {fingerprint[:16]}...")
+
     def send_message(self, remote_user_id, message_text):
         # Check if we have a session with this user
         if remote_user_id not in self.active_sessions:

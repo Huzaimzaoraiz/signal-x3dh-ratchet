@@ -96,9 +96,30 @@ class DoubleRatchet:
         ciphertext=message['ciphertext']
 
         if self.remote_dh_public is None:
-            # First message received — just record sender's DH key,
-            # use the pre-initialised receiving chain (no ratchet yet)
-            self.remote_dh_public = X25519PublicKey.from_public_bytes(remote_dh_public)
+            # First contact — record remote DH key and derive missing chain(s)
+            remote_public = X25519PublicKey.from_public_bytes(remote_dh_public)
+            self.remote_dh_public = remote_public
+
+            if self.receiving_chain_key is None:
+                # Initiator receiving the first reply — derive receiving chain
+                # to match the responder's sending chain
+                dh_output = self.dh_private.exchange(remote_public)
+                self.root_key, self.receiving_chain_key = derive_two_keys(
+                    dh_output, INFO_ROOT_KEY, b"SendingChain"
+                )
+                self.receiving_counter = 0
+
+            if self.sending_chain_key is None:
+                # Responder receiving the first message — derive sending chain
+                # (keep pre-initialised receiving chain intact)
+                self.dh_private = X25519PrivateKey.generate()
+                self.dh_public = self.dh_private.public_key()
+                dh_output = self.dh_private.exchange(remote_public)
+                self.root_key, self.sending_chain_key = derive_two_keys(
+                    dh_output, INFO_ROOT_KEY, b"SendingChain"
+                )
+                self.sending_counter = 0
+
         elif remote_dh_public != self._serialize_public_key(self.remote_dh_public):
             # Sender's DH key changed — perform a DH ratchet step
             self._dh_ratchet(remote_dh_public)
