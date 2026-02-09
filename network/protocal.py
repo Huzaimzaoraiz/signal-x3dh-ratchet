@@ -1,0 +1,80 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import MESSAGE_PADDING_SIZE
+
+
+def pad_message(message,target_size=MESSAGE_PADDING_SIZE):
+
+    current_len=len(message)
+
+    if current_len >= target_size:
+        raise Exception(f"Message is too long to pad (current length: {current_len}, target size: {target_size})")
+    
+    padding_length=target_size - current_len
+
+    padded = message + b'\x80'+ (b'\x00' * (padding_length - 1))
+
+    return padded
+
+def unpad_message(padded_message):
+     # Use find() to avoid exception-based control flow
+    marker_pos = padded_message.find(b'\x80')
+    if marker_pos == -1:
+        # No marker: return with trailing zeros removed (if any)
+        return padded_message.rstrip(b'\x00')
+    # Return content up to the marker
+    return padded_message[:marker_pos]
+
+class ProtocolMessage:
+    def __init__(self, sender_id, recipient_id, encrypted_payload, message_id=None):
+        self.sender_id = sender_id
+        self.recipient_id = recipient_id
+        self.encrypted_payload = encrypted_payload
+        self.message_id = message_id or os.urandom(16)
+        self.timestamp = None
+
+    def to_dict(self):
+        return {
+            'message_id': self.message_id,
+            'sender_id': self.sender_id,
+            'recipient_id': self.recipient_id,
+            'encrypted_payload': self.encrypted_payload
+        }
+    
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            sender_id=data['sender_id'],
+            recipient_id=data['recipient_id'],
+            encrypted_payload=data['encrypted_payload'],
+            message_id=data.get('message_id')
+        )
+
+
+def create_message_envelope(sender_id, recipient_id, plaintext, ratchet):
+    """Create an encrypted message envelope with padding and metadata."""
+    # Step 1: Pad the plaintext to hide length
+    padded_plaintext = pad_message(plaintext)
+    
+    # Step 2: Encrypt using the Double Ratchet
+    encrypted_payload = ratchet.encrypt_message(padded_plaintext)
+    
+    # Step 3: Create the protocol message with metadata
+    message = ProtocolMessage(
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        encrypted_payload=encrypted_payload
+    )
+    
+    return message
+
+def unwrap_message_envelope(message, ratchet):
+    """Decrypt and unpad a message from its envelope."""
+    # Step 1: Decrypt the payload
+    padded_plaintext = ratchet.decrypt_message(message.encrypted_payload)
+    
+    # Step 2: Remove padding
+    plaintext = unpad_message(padded_plaintext)
+    
+    return plaintext
