@@ -31,13 +31,15 @@ class DoubleRatchet:
         self.dh_private=X25519PrivateKey.generate()
         self.dh_public=self.dh_private.public_key()
 
-        self.sending_chain_key=derive_key(self.root_key,b"InitialSendingChain")
+        # Initiator sends on this chain; responder must receive on the same one
+        self.sending_chain_key=derive_key(self.root_key,b"InitiatorToResponder")
 
     def _init_as_responder(self):
         self.dh_private=X25519PrivateKey.generate()
         self.dh_public=self.dh_private.public_key()
 
-        self.receiving_chain_key=derive_key(self.root_key,b"InitialReceivingChain")
+        # Responder receives on the same chain the initiator sends on
+        self.receiving_chain_key=derive_key(self.root_key,b"InitiatorToResponder")
 
     def encrypt_message(self,plaintext):
 
@@ -93,7 +95,12 @@ class DoubleRatchet:
         nonce=message['nonce']
         ciphertext=message['ciphertext']
 
-        if remote_dh_public != self._serialize_public_key(self.remote_dh_public) if self.remote_dh_public else True:
+        if self.remote_dh_public is None:
+            # First message received — just record sender's DH key,
+            # use the pre-initialised receiving chain (no ratchet yet)
+            self.remote_dh_public = X25519PublicKey.from_public_bytes(remote_dh_public)
+        elif remote_dh_public != self._serialize_public_key(self.remote_dh_public):
+            # Sender's DH key changed — perform a DH ratchet step
             self._dh_ratchet(remote_dh_public)
 
         message_key=self._try_skipped_message_keys(remote_dh_public,counter)
@@ -138,3 +145,29 @@ class DoubleRatchet:
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw
         )
+
+    # ── Pickle support (needed for SQLite session storage) ────
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Serialize X25519 keys to raw bytes for pickling
+        if state.get('dh_private'):
+            state['dh_private'] = state['dh_private'].private_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PrivateFormat.Raw,
+                encryption_algorithm=serialization.NoEncryption()
+            )
+        if state.get('dh_public'):
+            state['dh_public'] = self._serialize_public_key(state['dh_public'])
+        if state.get('remote_dh_public'):
+            state['remote_dh_public'] = self._serialize_public_key(state['remote_dh_public'])
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Deserialize raw bytes back to X25519 key objects
+        if self.dh_private:
+            self.dh_private = X25519PrivateKey.from_private_bytes(self.dh_private)
+        if self.dh_public:
+            self.dh_public = X25519PublicKey.from_public_bytes(self.dh_public)
+        if self.remote_dh_public:
+            self.remote_dh_public = X25519PublicKey.from_public_bytes(self.remote_dh_public)

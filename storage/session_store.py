@@ -22,6 +22,7 @@ class SessionStore:
                 ratchet_state BLOB NOT NULL,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(local_user, remote_user)
+            )
         """)
 
         self.connection.commit()
@@ -80,4 +81,3 @@ class SessionStore:
     
     def close(self):
         self.connection.close()
-        
