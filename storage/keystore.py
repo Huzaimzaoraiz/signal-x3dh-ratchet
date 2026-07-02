@@ -1,5 +1,4 @@
 import sqlite3
-import pickle
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,12 +37,10 @@ class Keystore:
 
         cursor = self.connection.cursor()
 
-        serialized_data=pickle.dumps(key_data)
-
         cursor.execute("""
             INSERT INTO keys (user_id, key_type, key_data)
             VALUES (?, ?, ?)
-        """,(user_id,key_type,serialized_data))
+        """,(user_id,key_type,key_data))
 
         self.connection.commit()
 
@@ -62,7 +59,7 @@ class Keystore:
         if row is None:
             return None
         else:
-            return pickle.loads(row[0])
+            return row[0]
     def load_all_keys(self,user_id,key_type):
         cursor = self.connection.cursor()
 
@@ -73,7 +70,7 @@ class Keystore:
         """,(user_id,key_type))
 
         rows=cursor.fetchall()
-        return [pickle.loads(row[0]) for row in rows]
+        return [row[0] for row in rows]
     
     def delete_keys(self,user_id,key_type):
         cursor = self.connection.cursor()

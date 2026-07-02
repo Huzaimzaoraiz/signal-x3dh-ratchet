@@ -1,9 +1,10 @@
 import sqlite3
-import pickle
+import json
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import DATABASE_FILE
+from crypto.ratchet import DoubleRatchet
 
 class SessionStore:
     def __init__(self,db_path=DATABASE_FILE):
@@ -22,6 +23,7 @@ class SessionStore:
                 ratchet_state BLOB NOT NULL,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(local_user, remote_user)
+            )
         """)
 
         self.connection.commit()
@@ -30,7 +32,7 @@ class SessionStore:
 
         cursor = self.connection.cursor()
 
-        serialized_data=pickle.dumps(ratchet_state)
+        serialized_data = json.dumps(ratchet_state.to_dict()).encode('utf-8')
 
         cursor.execute("""
            INSERT OR REPLACE INTO sessions 
@@ -54,7 +56,7 @@ class SessionStore:
         if row is None:
             return None
 
-        return pickle.loads(row[0])
+        return DoubleRatchet.from_dict(json.loads(row[0].decode('utf-8')))
     
     def delete_session(self,local_user,remote_user):
         cursor = self.connection.cursor()

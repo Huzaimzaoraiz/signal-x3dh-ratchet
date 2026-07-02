@@ -71,6 +71,14 @@ class SecureMessengerClient:
         
         print(f"✓ Started conversation with {remote_user_id}")
         print(f"  Identity fingerprint: {fingerprint[:16]}...")
+        return self.x3dh._serialize_public_key(self.x3dh.identity_public), ephemeral_public
+
+    def accept_conversation(self, initiator_id, initiator_id_pub, initiator_eph_pub):
+        shared_secret = self.x3dh.respond_to_session(initiator_id_pub, initiator_eph_pub)
+        ratchet = DoubleRatchet(shared_secret, is_initiator=False)
+        self.active_sessions[initiator_id] = ratchet
+        self.session_store.save_session(self.user_id, initiator_id, ratchet)
+        print(f"✓ Accepted conversation from {initiator_id}")
     
     def send_message(self, remote_user_id, message_text):
         # Check if we have a session with this user
@@ -105,9 +113,6 @@ class SecureMessengerClient:
         
         # Get or create session
         if sender_id not in self.active_sessions:
-            # This is the first message - we need to establish session
-            # In a real implementation, this would involve responding to X3DH
-            # For simplicity, we'll raise an error
             raise Exception(f"No session with {sender_id}. They need to start conversation first.")
         
         # Get the ratchet for this conversation

@@ -8,23 +8,20 @@ def pad_message(message,target_size=MESSAGE_PADDING_SIZE):
 
     current_len=len(message)
 
-    if current_len >= target_size:
+    if current_len + 4 > target_size:
         raise Exception(f"Message is too long to pad (current length: {current_len}, target size: {target_size})")
     
-    padding_length=target_size - current_len
+    padding_length=target_size - current_len - 4
 
-    padded = message + b'\x80'+ (b'\x00' * (padding_length - 1))
+    padded = current_len.to_bytes(4, 'big') + message + (b'\x00' * padding_length)
 
     return padded
 
 def unpad_message(padded_message):
-     # Use find() to avoid exception-based control flow
-    marker_pos = padded_message.find(b'\x80')
-    if marker_pos == -1:
-        # No marker: return with trailing zeros removed (if any)
-        return padded_message.rstrip(b'\x00')
-    # Return content up to the marker
-    return padded_message[:marker_pos]
+    if len(padded_message) < 4:
+        return padded_message
+    msg_len = int.from_bytes(padded_message[:4], 'big')
+    return padded_message[4:4+msg_len]
 
 class ProtocolMessage:
     def __init__(self, sender_id, recipient_id, encrypted_payload, message_id=None):
