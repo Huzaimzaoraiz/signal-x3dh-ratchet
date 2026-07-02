@@ -1,2 +1,4 @@
 __pycache__/
 test_crypto_system.py
+test_the_full_project.py
+.gitignore
