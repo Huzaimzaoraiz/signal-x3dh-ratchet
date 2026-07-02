@@ -4,27 +4,38 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MESSAGE_PADDING_SIZE
 
 
-def pad_message(message,target_size=MESSAGE_PADDING_SIZE):
+def pad_message(message, target_size=MESSAGE_PADDING_SIZE):
+    """Pad message to fixed size using a 4-byte length prefix."""
+    current_len = len(message)
 
-    current_len=len(message)
+    # Reserve 4 bytes for the length prefix
+    if current_len > target_size - 4:
+        raise Exception(
+            f"Message is too long to pad (current length: {current_len}, "
+            f"max payload: {target_size - 4})"
+        )
 
-    if current_len >= target_size:
-        raise Exception(f"Message is too long to pad (current length: {current_len}, target size: {target_size})")
-    
-    padding_length=target_size - current_len
-
-    padded = message + b'\x80'+ (b'\x00' * (padding_length - 1))
+    # 4-byte big-endian length + original message + zero padding
+    length_prefix = current_len.to_bytes(4, byteorder='big')
+    padding_needed = target_size - 4 - current_len
+    padded = length_prefix + message + (b'\x00' * padding_needed)
 
     return padded
 
+
 def unpad_message(padded_message):
-     # Use find() to avoid exception-based control flow
-    marker_pos = padded_message.find(b'\x80')
-    if marker_pos == -1:
-        # No marker: return with trailing zeros removed (if any)
-        return padded_message.rstrip(b'\x00')
-    # Return content up to the marker
-    return padded_message[:marker_pos]
+    """Remove padding by reading the 4-byte length prefix."""
+    if len(padded_message) < 4:
+        return padded_message
+
+    # Read original message length from the first 4 bytes
+    msg_len = int.from_bytes(padded_message[:4], byteorder='big')
+
+    # Sanity check
+    if msg_len > len(padded_message) - 4:
+        raise Exception("Invalid padding: declared length exceeds available data")
+
+    return padded_message[4 : 4 + msg_len]
 
 class ProtocolMessage:
     def __init__(self, sender_id, recipient_id, encrypted_payload, message_id=None):
