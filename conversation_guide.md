@@ -56,7 +56,7 @@ When **Alice** wants to send her first message to **Bob**:
 
 ---
 
-## 3. Ultra-Detailed System Flow & Execution Trace
+## 3.Detailed System Flow & Execution Trace
 
 This section maps out every function call, database query, key derivation, JSON state transition, and byte packet structure in chronological order.
 
