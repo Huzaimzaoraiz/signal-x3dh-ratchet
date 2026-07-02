@@ -10,7 +10,7 @@
 
 ---
 
-## ⚡ Overview
+##  Overview
 
 This repository provides a complete implementation of the Double Ratchet Algorithm (along with X3DH) built from the ground up. It implements industry-standard cryptographic paradigms, providing perfect forward secrecy, post-compromise security, and robust resilience against common network-layer attacks.
 
